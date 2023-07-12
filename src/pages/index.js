@@ -1,116 +1,120 @@
-import React, { useState, useEffect, useRef } from "react";
-import MP3Player from "../components/MP3Player";
+import Head from "next/head";
+import { useState, useEffect, useRef } from "react";
+import { CountdownCircleTimer } from "react-countdown-circle-timer";
 
-const Timer = ({ initialTime, onTimerEnd, onPlay, onPause }) => {
-  const [time, setTime] = useState(initialTime);
-  const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = useRef(null);
+const Home = () => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const songList = [
+    "/audio/song1.mp3",
+    "/audio/song2.mp3",
+    // Add more songs to the list as needed
+  ];
+  const audioRef = useRef(null);
+  const [timerDuration, setTimerDuration] = useState(0);
+  const [customTimer, setCustomTimer] = useState(0);
 
   useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setTime((prevTime) => {
-          if (prevTime <= 1) {
-            clearInterval(intervalRef.current);
-            onTimerEnd();
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-      onPlay(); // Start playing the audio
+    const playBackgroundMusic = () => {
+      const audio = new Audio(songList[currentSongIndex]);
+      audio.loop = false;
+      audio.play();
+
+      audio.addEventListener("ended", handleSongEnd);
+
+      audioRef.current = audio;
+    };
+
+    const handleSongEnd = () => {
+      setCurrentSongIndex((prevIndex) => (prevIndex + 1) % songList.length);
+      setTimerDuration(0);
+    };
+
+    if (isPlaying) {
+      playBackgroundMusic();
     } else {
-      clearInterval(intervalRef.current);
-      onPause(); // Pause the audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.removeEventListener("ended", handleSongEnd);
+      }
     }
 
     return () => {
-      clearInterval(intervalRef.current);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.removeEventListener("ended", handleSongEnd);
+      }
     };
-  }, [isRunning, onTimerEnd, onPlay, onPause]);
+  }, [isPlaying, currentSongIndex, songList]);
 
-  const startTimer = () => {
-    setIsRunning(true);
-  };
+  useEffect(() => {
+    if (isPlaying && timerDuration > 0) {
+      const timer = setTimeout(() => {
+        setIsPlaying(false);
+      }, timerDuration * 1000);
 
-  const stopTimer = () => {
-    setIsRunning(false);
-  };
+      return () => clearTimeout(timer);
+    }
+  }, [isPlaying, timerDuration]);
 
-  const resetTimer = () => {
-    setTime(initialTime);
-    setIsRunning(false);
-  };
-
-  return (
-    <div>
-      <div>Time Remaining: {time} seconds</div>
-      <button onClick={startTimer}>Start</button>
-      <button onClick={stopTimer}>Stop</button>
-      <button onClick={resetTimer}>Reset</button>
-    </div>
-  );
-};
-
-const songs = [
-  "https://youtu.be/RVTDyaRRM9E",
-  "https://youtu.be/TxUdlC0057s",
-  "https://youtu.be/9CVVTRxMKVM",
-  // Add more songs as needed
-];
-
-const MainPage = () => {
-  const [currentSongIndex, setCurrentSongIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const playNextSong = () => {
-    setCurrentSongIndex((prevIndex) => {
-      const nextIndex = prevIndex + 1;
-      return nextIndex < songs.length ? nextIndex : 0;
-    });
-  };
-
-  const playPreviousSong = () => {
-    setCurrentSongIndex((prevIndex) => {
-      const previousIndex = prevIndex - 1;
-      return previousIndex >= 0 ? previousIndex : songs.length - 1;
-    });
-  };
-
-  const handleTimerEnd = () => {
-    setIsPlaying(false);
-    alert("Timer ended!");
-    // You can set a new timer here
-  };
-
-  const handleSongPlay = () => {
+  const handleSetTimer = (duration) => {
+    setTimerDuration(duration);
     setIsPlaying(true);
-    console.log("Song is playing");
   };
 
-  const handleSongPause = () => {
-    setIsPlaying(false);
+  const handleCustomTimerChange = (event) => {
+    setCustomTimer(event.target.value);
+  };
+
+  const handleCustomTimerSubmit = (event) => {
+    event.preventDefault();
+    const duration = parseInt(customTimer, 10);
+    if (!isNaN(duration) && duration > 0) {
+      handleSetTimer(duration);
+    }
+  };
+
+  const handleNextSong = () => {
+    setCurrentSongIndex((prevIndex) => (prevIndex + 1) % songList.length);
+  };
+
+  const handlePreviousSong = () => {
+    setCurrentSongIndex((prevIndex) =>
+      prevIndex === 0 ? songList.length - 1 : prevIndex - 1
+    );
   };
 
   return (
     <div>
-      <h1>My Music App</h1>
-      <Timer
-        initialTime={60}
-        onTimerEnd={handleTimerEnd}
-        onPlay={handleSongPlay}
-        onPause={handleSongPause}
-      />
-      <MP3Player
-        src={songs[currentSongIndex]}
-        isPlaying={isPlaying}
-        onPlay={handleSongPlay}
-        onPause={handleSongPause}
-        onEnded={playNextSong}
-      />
-      <button onClick={playPreviousSong}>Previous</button>
-      <button onClick={playNextSong}>Next</button>
+      <Head>
+        <title>My Music App</title>
+      </Head>
+      <h1>Welcome to My Music App</h1>
+      {!isPlaying && (
+        <div>
+          <button onClick={() => handleSetTimer(5)}>Play for 5 seconds</button>
+          <button onClick={() => handleSetTimer(60)}>Play for 1 minute</button>
+          <button onClick={() => handleSetTimer(120)}>
+            Play for 2 minutes
+          </button>
+        </div>
+      )}
+      <button onClick={handlePreviousSong}>Previous</button>
+      <button onClick={handleNextSong}>Next</button>
+      <div>
+        {isPlaying && (
+          <CountdownCircleTimer
+            isPlaying={isPlaying}
+            duration={timerDuration}
+            colors={[["#D14081"]]}
+            onComplete={() => setIsPlaying(false)}
+          >
+            {({ remainingTime }) => remainingTime}
+          </CountdownCircleTimer>
+        )}
+      </div>
     </div>
   );
 };
 
-export default MainPage;
+export default Home;
